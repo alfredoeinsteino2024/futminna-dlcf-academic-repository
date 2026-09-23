@@ -20,7 +20,7 @@
     </div>
     <div>
       <h1 class="text-lg sm:text-2xl font-bold leading-tight">DEEPER LIFE CAMPUS FELLOWSHIP (DLCF)</h1>
-      <p class="text-blue-100 text-sm sm:text-base">Federal University of Technology, Minna  Academic Resource Portal</p>
+      <p class="text-blue-100 text-sm sm:text-base">Federal University of Technology, Minna — Academic Resource Portal</p>
       <span class="inline-block mt-2 bg-gold text-royal text-xs font-bold px-3 py-1 rounded-full">Academic Directorate Repository</span>
     </div>
   </div>
@@ -115,7 +115,7 @@
 <script>
 // ====== CONFIGURATION ======
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbypWsSHowk4Vl5bYu8h9Ca0MVnoSboGXP44XPZk0CyJcQ1M16s9QJ-WCTIA61RGcx-2/exec';   // ends in /exec
-const CHUNK_SIZE = 3 * 1024 * 1024;                  // multiple of 3 (Base64) and 256KB (Drive)
+const CHUNK_SIZE = 1536 * 1024;                      // 1.5MB: multiple of 3 (Base64) and 256KB (Drive)
 const MAX_FILE_BYTES = 100 * 1024 * 1024;
 const ENGINEERING = 'School of Engineering and Engineering Technology';
 
@@ -249,12 +249,21 @@ async function post(payload, tries = 3) {
   for (let a = 1; a <= tries; a++) {
     try {
       const res = await fetch(endpoint, { method: 'POST', body: JSON.stringify(payload) });
-      const data = await res.json();
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); }
+      catch (e) {
+        const err = new Error('The server sent a page instead of a reply (HTTP ' + res.status + '). Redeploy Code.gs as a new version and check that access is set to Anyone.');
+        err.fatal = true;
+        throw err;
+      }
       if (data.status === 'error') { const e = new Error(data.message); e.fatal = true; throw e; }
       return data;
     } catch (err) {
+      console.error('Request failed (attempt ' + a + ' of ' + tries + '):', payload.action, err);
       last = err;
       if (err.fatal) break;
+      if (err instanceof TypeError) last = new Error('Could not reach the server (network problem or blocked request). Check your connection and try again.');
       await sleep(900 * a);
     }
   }
