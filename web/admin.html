@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>DLCF FUTMINNA · Storage Locations</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config = { theme: { extend: { colors: { royal: '#1e3a8a', gold: '#eab308', mist: '#f8fafc' } } } };</script>
+</head>
+<body class="bg-mist text-slate-800 min-h-screen antialiased">
+<header class="bg-royal text-white border-b-4 border-gold">
+  <div class="max-w-3xl mx-auto px-4 py-5">
+    <h1 class="text-xl font-bold">Storage locations</h1>
+    <p class="text-blue-100 text-sm">Academic Directorate only. Choose where new uploads are saved.</p>
+  </div>
+</header>
+
+<main class="max-w-3xl mx-auto px-4 py-6 space-y-6">
+  <p id="msg" class="hidden rounded-lg p-3 text-sm" role="status"></p>
+
+  <section class="bg-white rounded-xl border border-slate-200 p-5 space-y-3">
+    <label for="pass" class="block text-sm font-semibold">Admin passcode</label>
+    <div class="flex gap-2">
+      <input id="pass" type="password" autocomplete="off" class="flex-1 rounded-lg border border-slate-300 p-3 focus:outline-none focus:ring-2 focus:ring-royal">
+      <button id="load" class="bg-royal text-white font-bold px-4 rounded-lg hover:bg-blue-900">Load</button>
+    </div>
+    <ul id="list" class="divide-y divide-slate-200 rounded-lg border border-slate-200 text-sm hidden"></ul>
+    <p class="text-xs text-slate-500">Storage figures show the Google account that owns each location, since that account's quota is what fills up.</p>
+  </section>
+
+  <section id="addBox" class="hidden bg-white rounded-xl border border-slate-200 p-5 space-y-4">
+    <h2 class="font-bold text-royal">Add a storage location</h2>
+    <div>
+      <label for="name" class="block text-sm font-semibold mb-1">Name</label>
+      <input id="name" type="text" placeholder="e.g. DLCF Drive 2" class="w-full rounded-lg border border-slate-300 p-3 focus:outline-none focus:ring-2 focus:ring-royal">
+    </div>
+    <div class="space-y-2 text-sm">
+      <label class="flex items-start gap-2"><input type="radio" name="kind" value="folder" checked class="mt-1 accent-royal"> <span><b>A folder this script can write to</b><br><span class="text-slate-500">Uses the same Google account's storage unless the folder is on a Shared Drive.</span></span></label>
+      <label class="flex items-start gap-2"><input type="radio" name="kind" value="account" class="mt-1 accent-royal"> <span><b>Another Google account</b><br><span class="text-slate-500">That account deploys its own copy of Code.gs. This is what gives you fresh space.</span></span></label>
+    </div>
+    <div id="folderRow">
+      <label for="folder" class="block text-sm font-semibold mb-1">Drive folder link or ID</label>
+      <input id="folder" type="text" placeholder="https://drive.google.com/drive/folders/..." class="w-full rounded-lg border border-slate-300 p-3 focus:outline-none focus:ring-2 focus:ring-royal">
+    </div>
+    <div id="endpointRow" class="hidden">
+      <label for="endpoint" class="block text-sm font-semibold mb-1">That account's Web App URL</label>
+      <input id="endpoint" type="url" placeholder="https://script.google.com/macros/s/.../exec" class="w-full rounded-lg border border-slate-300 p-3 focus:outline-none focus:ring-2 focus:ring-royal">
+    </div>
+    <button id="add" class="bg-gold text-royal font-bold px-5 py-3 rounded-lg hover:brightness-95">Add location</button>
+  </section>
+</main>
+
+<script>
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbypWsSHowk4Vl5bYu8h9Ca0MVnoSboGXP44XPZk0CyJcQ1M16s9QJ-WCTIA61RGcx-2/exec';   // the main deployment (same URL as index.html)
+const $ = id => document.getElementById(id);
+const GB = n => (n / 1073741824).toFixed(1) + ' GB';
+
+function say(text, ok) {
+  const m = $('msg');
+  m.textContent = text;
+  m.className = 'rounded-lg p-3 text-sm border ' + (ok ? 'bg-green-50 border-green-300 text-green-900' : 'bg-red-50 border-red-300 text-red-900');
+}
+
+async function call(payload) {
+  if (SCRIPT_URL.includes('YOUR_')) throw new Error('Set SCRIPT_URL in admin.html first.');
+  const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'admin', adminPasscode: $('pass').value, ...payload }) });
+  const data = await res.json();
+  if (data.status === 'error') throw new Error(data.message);
+  return data;
+}
+
+function usage(s) {
+  if (!s) return 'Storage unavailable';
+  const pct = s.limit ? Math.round(s.used / s.limit * 100) : 0;
+  return GB(s.used) + ' of ' + GB(s.limit) + ' used (' + pct + '%)';
+}
+
+function row(id, name, detail, isActive) {
+  const li = document.createElement('li');
+  li.className = 'flex items-center justify-between gap-3 p-3';
+  const info = document.createElement('div');
+  info.className = 'min-w-0';
+  const n = document.createElement('p');
+  n.className = 'font-semibold truncate';
+  n.textContent = name;
+  if (isActive) {
+    const b = document.createElement('span');
+    b.className = 'ml-2 text-xs bg-gold text-royal font-bold px-2 py-0.5 rounded-full';
+    b.textContent = 'Active';
+    n.append(b);
+  }
+  const d = document.createElement('p');
+  d.className = 'text-xs text-slate-500';
+  d.textContent = detail;
+  info.append(n, d);
+  const actions = document.createElement('div');
+  actions.className = 'shrink-0 flex gap-3 text-xs font-semibold';
+  if (!isActive) actions.append(btn('Use this', 'text-royal', () => act({ op: 'activate', id })));
+  if (id) actions.append(btn('Remove', 'text-red-600', () => confirm('Remove "' + name + '" from the list? Files already saved stay where they are.') && act({ op: 'remove', id })));
+  li.append(info, actions);
+  return li;
+}
+
+function btn(label, cls, fn) {
+  const b = document.createElement('button');
+  b.type = 'button'; b.textContent = label; b.className = cls + ' hover:underline';
+  b.addEventListener('click', fn);
+  return b;
+}
+
+function render(d) {
+  const ul = $('list');
+  ul.innerHTML = '';
+  ul.classList.remove('hidden');
+  $('addBox').classList.remove('hidden');
+  ul.append(row('', 'Main repository', 'Set in Code.gs · ' + usage(d.main), !d.active));
+  d.locations.forEach(l => ul.append(row(l.id, l.name, (l.kind === 'account' ? 'Another account · ' : 'Folder · ') + usage(l.storage), d.active === l.id)));
+}
+
+async function act(payload, okText) {
+  try {
+    render(await call(payload));
+    say(okText || 'Saved. New uploads use the active location.', true);
+  } catch (err) { say(err.message || 'Request failed.', false); }
+}
+
+$('load').addEventListener('click', () => act({ op: 'list' }, 'Loaded.'));
+document.querySelectorAll('[name=kind]').forEach(r => r.addEventListener('change', () => {
+  const acc = document.querySelector('[name=kind]:checked').value === 'account';
+  $('folderRow').classList.toggle('hidden', acc);
+  $('endpointRow').classList.toggle('hidden', !acc);
+}));
+$('add').addEventListener('click', async () => {
+  const acc = document.querySelector('[name=kind]:checked').value === 'account';
+  await act({ op: 'add', name: $('name').value, ...(acc ? { endpoint: $('endpoint').value } : { folder: $('folder').value }) }, 'Location added.');
+  if ($('msg').className.includes('green')) { $('name').value = ''; $('folder').value = ''; $('endpoint').value = ''; }
+});
+</script>
+</body>
+</html>
