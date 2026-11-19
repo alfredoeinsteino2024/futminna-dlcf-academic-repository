@@ -36,6 +36,7 @@
       <label for="school" class="block text-sm font-semibold mb-1">School / Faculty</label>
       <select id="school" class="w-full rounded-lg border border-slate-300 p-3 bg-white focus:outline-none focus:ring-2 focus:ring-royal">
         <option value="">Select a school</option>
+        <option value="General">General (all schools, e.g. GST and university-wide courses)</option>
         <option value="School of Engineering and Engineering Technology">School of Engineering and Engineering Technology (SEET / SIPET)</option>
         <option value="School of Physical Sciences">School of Physical Sciences (SPS)</option>
         <option value="School of Life Sciences">School of Life Sciences (SLS)</option>
@@ -60,7 +61,7 @@
 
     <div class="grid sm:grid-cols-2 gap-5">
       <div>
-        <label for="department" class="block text-sm font-semibold mb-1">Department</label>
+        <label for="department" class="block text-sm font-semibold mb-1">Department <span id="deptHint" class="font-normal text-slate-500 hidden">(optional for General)</span></label>
         <input id="department" type="text" placeholder="e.g. Mechatronics Engineering, Computer Science, Architecture" class="w-full rounded-lg border border-slate-300 p-3 focus:outline-none focus:ring-2 focus:ring-royal">
       </div>
       <div>
@@ -124,6 +125,8 @@ const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbypWsSHowk4Vl5bYu8h9
 const CHUNK_SIZE = 1536 * 1024;                      // 1.5MB: multiple of 3 (Base64) and 256KB (Drive)
 const MAX_FILE_BYTES = 100 * 1024 * 1024;
 const ENGINEERING = 'School of Engineering and Engineering Technology';
+const GENERAL = 'General';
+const GENERAL_DEPT = 'All Departments';   // folder used when General is chosen with no department
 
 const $ = id => document.getElementById(id);
 let files = [];
@@ -150,6 +153,7 @@ function showBanner(kind, html) {
 $('school').addEventListener('change', () => {
   const eng = $('school').value === ENGINEERING;
   $('divisionBox').classList.toggle('hidden', !eng);
+  $('deptHint').classList.toggle('hidden', $('school').value !== GENERAL);
   if (!eng) document.querySelectorAll('[name=division]').forEach(r => r.checked = false);
 });
 
@@ -299,7 +303,7 @@ $('form').addEventListener('submit', async e => {
 
   const school = $('school').value;
   const division = school === ENGINEERING ? (document.querySelector('[name=division]:checked') || {}).value : '';
-  const department = $('department').value.trim();
+  const department = $('department').value.trim() || (school === GENERAL ? GENERAL_DEPT : '');
   const level = $('level').value;
 
   if (!school) return showError('Choose a school or faculty.');
